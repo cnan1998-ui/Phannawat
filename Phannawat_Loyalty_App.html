@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>พรรณวัฒน์ Loyalty - ระบบสะสมแต้ม</title>
+    <!-- Tailwind CSS & FontAwesome Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- JSQR & Canvas-confetti for scanner & particle effects -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#2e7d32', // พรรณวัฒน์ เขียวธรรมชาติ
+                            800: '#1b5e20',
+                            900: '#14532d',
+                        },
+                        line: '#06C755'
+                    },
+                    fontFamily: {
+                        prompt: ['Prompt', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 60%, #43a047 100%);
+        }
+        .wood-texture {
+            background-color: #2e7d32;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 0);
+            background-size: 16px 16px;
+        }
+        /* Hide scrollbars for smooth app experience */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex justify-center items-start sm:py-6">
+
+    <!-- Mobile Screen Frame Container -->
+    <div class="w-full max-w-md bg-white min-h-screen sm:min-h-[844px] sm:rounded-[36px] shadow-2xl flex flex-col relative overflow-hidden border-0 sm:border-8 sm:border-slate-800">
+        
+        <!-- LINE Top Bar Indicator / Status -->
+        <div class="bg-brand-800 text-white px-4 py-2 text-xs flex justify-between items-center z-10">
+            <div class="flex items-center gap-1.5">
+                <i class="fa-brands fa-line text-line text-sm"></i>
+                <span class="font-medium text-[11px] opacity-90">LINE Mini App | พรรณวัฒน์</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="shareToLine()" class="text-xs bg-line text-white px-2 py-0.5 rounded-full font-medium flex items-center gap-1 hover:bg-green-600 transition">
+                    <i class="fa-solid fa-share-nodes text-[10px]"></i> แชร์
+                </button>
+                <button onclick="toggleAdminPanel()" class="text-xs text-green-200 hover:text-white" title="สลับโหมดแอดมิน">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Scrollable Content -->
+        <div class="flex-1 overflow-y-auto no-scrollbar pb-24">
+            
+            <!-- Header Section -->
+            <div class="px-5 pt-4 pb-2 flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-xl border-2 border-brand-500 shadow-sm">
+                        🌱
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-slate-800 text-lg leading-tight">พรรณวัฒน์</h1>
+                        <p class="text-xs text-slate-500 font-light">Phannawat Loyalty Rewards</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="inline-block bg-brand-50 text-brand-700 text-xs px-2.5 py-1 rounded-full border border-brand-200 font-medium">
+                        <i class="fa-solid fa-shield-halved mr-1"></i>สมาชิกทั่วไป
+                    </span>
+                </div>
+            </div>
+
+            <!-- Loyalty Card Component -->
+            <div class="px-4 py-2">
+                <div class="card-gradient rounded-2xl p-5 text-white shadow-xl relative overflow-hidden border border-green-600/30">
+                    <!-- Background Leaf Pattern Accent -->
+                    <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl pointer-events-none">
+                        <i class="fa-solid fa-seedling"></i>
+                    </div>
+
+                    <div class="flex justify-between items-start mb-2 relative z-10">
+                        <div>
+                            <p class="text-xs text-green-200 font-light tracking-wide uppercase">แต้มสะสมทั้งหมด</p>
+                            <div class="flex items-baseline gap-1 mt-0.5">
+                                <span id="userPoints" class="text-4xl font-extrabold tracking-tight text-yellow-300">1,000</span>
+                                <span class="text-sm font-medium text-green-100">แต้ม</span>
+                            </div>
+                        </div>
+                        <div class="bg-white/15 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20 text-right">
+                            <p class="text-[10px] text-green-200">รหัสสมาชิก</p>
+                            <p id="userIdText" class="font-mono text-sm font-bold text-white">PW-8892</p>
+                        </div>
+                    </div>
+
+                    <!-- Member Barcode & QR Code Section -->
+                    <div class="mt-4 bg-white/95 text-slate-800 rounded-xl p-3 backdrop-blur-sm relative z-10 shadow-inner flex flex-col items-center justify-center">
+                        <div class="flex items-center justify-between w-full mb-1">
+                            <span class="text-[11px] font-medium text-slate-500">ยิงบาร์โค้ดสะสมแต้มหน้าบ้าน</span>
+                            <span class="text-[10px] text-brand-700 font-semibold bg-brand-50 px-2 py-0.5 rounded">1 บาท = 20 แต้ม</span>
+                        </div>
+                        
+                        <!-- Simulated Barcode Visual -->
+                        <div class="w-full h-12 my-1 flex justify-center items-center gap-1 bg-slate-100 px-4 py-1 rounded border border-slate-200 overflow-hidden">
+                            <div class="h-full w-1 bg-slate-800"></div>
+                            <div class="h-full w-2 bg-slate-800"></div>
+                            <div class="h-full w-0.5 bg-slate-800"></div>
+                            <div class="h-full w-3 bg-slate-800"></div>
+                            <div class="h-full w-1.5 bg-slate-800"></div>
+                            <div class="h-full w-1 bg-slate-800"></div>
+                            <div class="h-full w-2.5 bg-slate-800"></div>
+                            <div class="h-full w-0.5 bg-slate-800"></div>
+                            <div class="h-full w-2 bg-slate-800"></div>
+                            <div class="h-full w-1 bg-slate-800"></div>
+                            <div class="h-full w-3 bg-slate-800"></div>
+                            <div class="h-full w-0.5 bg-slate-800"></div>
+                            <div class="h-full w-1.5 bg-slate-800"></div>
+                        </div>
+                        <p class="text-[10px] font-mono text-slate-400">PW-8892-5501-9921</p>
+                    </div>
+
+                    <!-- Quick Action Buttons on Card -->
+                    <div class="mt-4 grid grid-cols-2 gap-2 relative z-10">
+                        <button onclick="openScannerModal()" class="bg-yellow-400 hover:bg-yellow-300 text-slate-900 text-xs font-bold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 shadow transition">
+                            <i class="fa-solid fa-qrcode text-sm"></i> สแกนรับแต้ม
+                        </button>
+                        <button onclick="shareToLine()" class="bg-white/20 hover:bg-white/30 text-white text-xs font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 backdrop-blur-sm border border-white/30 transition">
+                            <i class="fa-brands fa-line text-line text-sm bg-white rounded-full p-0.5"></i> แชร์เพื่อนรับ +1,000
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banner Highlight -->
+            <div class="px-4 py-2">
+                <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-3 text-white flex items-center justify-between shadow-md">
+                    <div class="flex items-center gap-3">
+                        <div class="text-2xl bg-white/20 p-2 rounded-lg">🎁</div>
+                        <div>
+                            <h4 class="font-bold text-sm leading-tight">โบนัสต้อนรับสมาชิกใหม่!</h4>
+                            <p class="text-xs text-amber-100 font-light">รับทันที 1,000 แต้มเมื่อเข้าใช้งาน</p>
+                        </div>
+                    </div>
+                    <button onclick="claimWelcomeBonus()" id="welcomeBtn" class="bg-white text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg shadow hover:bg-amber-50 active:scale-95 transition">
+                        รับแต้ม
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rewards Catalog Section -->
+            <div class="px-4 py-3">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-gift text-brand-700"></i> ตารางแลกของรางวัล
+                    </h3>
+                    <span class="text-xs text-slate-500 font-light">แลกได้ทันที</span>
+                </div>
+
+                <!-- Rewards List Container -->
+                <div id="rewardsContainer" class="space-y-3">
+                    <!-- Dynamic Items will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Admin Controller Panel (Togglable) -->
+            <div id="adminPanel" class="mx-4 my-4 p-4 bg-slate-800 text-white rounded-xl shadow-lg border border-slate-700 hidden">
+                <div class="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
+                    <h4 class="font-bold text-sm text-yellow-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-user-shield"></i> โหมดเจ้าของร้าน (Admin Panel)
+                    </h4>
+                    <button onclick="toggleAdminPanel()" class="text-xs text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-base"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="block text-slate-300 mb-1">คำนวณแต้มจากยอดซื้อ (1 บาท = 20 แต้ม):</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="adminPurchaseAmount" placeholder="ยอดซื้อ เช่น 50" class="flex-1 bg-slate-700 border border-slate-600 rounded px-3 py-1.5 text-white focus:outline-none focus:border-brand-500">
+                            <button onclick="adminAddPoints()" class="bg-brand-600 hover:bg-brand-500 text-white font-bold px-3 py-1.5 rounded transition">
+                                เติมแต้ม
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick="adminQuickAdd(1000)" class="bg-slate-700 hover:bg-slate-600 text-yellow-300 font-medium py-1.5 px-2 rounded border border-slate-600 text-center">
+                            +1,000 แต้ม
+                        </button>
+                        <button onclick="adminQuickAdd(2500)" class="bg-slate-700 hover:bg-slate-600 text-yellow-300 font-medium py-1.5 px-2 rounded border border-slate-600 text-center">
+                            +2,500 แต้ม
+                        </button>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-700 flex justify-between items-center">
+                        <span class="text-slate-400 text-[11px]">จัดการข้อมูลทดสอบ:</span>
+                        <button onclick="resetSystemData()" class="text-red-400 hover:text-red-300 text-[11px] underline">
+                            ลบข้อมูลเริ่มใหม่ทั้งหมด
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Info -->
+            <div class="text-center py-6 px-4 text-xs text-slate-400 border-t border-slate-200 mt-6 space-y-1">
+                <p class="font-medium text-slate-600">แบรนด์ "พรรณวัฒน์" (Phannawat)</p>
+                <p>ศูนย์รวมเมล็ดพันธุ์ผักสวนครัว และไม้ป่ามรดกคุณภาพสูง</p>
+                <div class="flex justify-center items-center gap-3 pt-2 text-brand-700">
+                    <a href="#" onclick="openExternalLine()" class="flex items-center gap-1 hover:underline"><i class="fa-brands fa-line text-line"></i> แอดไลน์ร้าน</a>
+                    <span>•</span>
+                    <a href="#" onclick="alert('พรรณวัฒน์ คลับคนรักการปลูก - ติดต่อสอบถามได้ทาง LINE OA')" class="hover:underline">ช่วยเหลือ</a>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Sticky Bottom Navigation Bar -->
+        <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-6 flex justify-around items-center z-20 shadow-lg">
+            <button class="flex flex-col items-center text-brand-700">
+                <i class="fa-solid fa-id-card text-lg"></i>
+                <span class="text-[10px] font-medium mt-0.5">บัตรสะสมแต้ม</span>
+            </button>
+            <button onclick="openScannerModal()" class="flex flex-col items-center text-slate-400 hover:text-brand-700">
+                <div class="w-10 h-10 bg-brand-700 text-white rounded-full flex items-center justify-center -mt-5 border-4 border-white shadow-md">
+                    <i class="fa-solid fa-qrcode text-lg"></i>
+                </div>
+                <span class="text-[10px] font-medium mt-0.5">สแกนรับแต้ม</span>
+            </button>
+            <button onclick="shareToLine()" class="flex flex-col items-center text-slate-400 hover:text-brand-700">
+                <i class="fa-brands fa-line text-lg text-line"></i>
+                <span class="text-[10px] font-medium mt-0.5">เปิดใน LINE</span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Scanner Modal Simulator -->
+    <div id="scannerModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative">
+            <div class="bg-brand-800 text-white px-4 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-qrcode text-yellow-400"></i> สแกน QR Code รับแต้ม
+                </h3>
+                <button onclick="closeScannerModal()" class="text-slate-300 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 flex flex-col items-center text-center">
+                <!-- Camera Viewport / Simulator View -->
+                <div class="w-48 h-48 bg-slate-900 rounded-xl relative overflow-hidden flex items-center justify-center border-2 border-brand-500 mb-4 shadow-inner">
+                    <!-- Laser Scanner Line Animation -->
+                    <div id="scannerLine" class="absolute w-full h-1 bg-red-500 shadow-[0_0_8px_#ef4444] top-0 animate-[bounce_2s_infinite]"></div>
+                    <i class="fa-solid fa-camera text-slate-600 text-4xl"></i>
+                    <p class="absolute bottom-2 text-[10px] text-slate-400">ส่อง QR Code หลังซองหรือหน้าร้าน</p>
+                </div>
+
+                <p class="text-xs text-slate-600 mb-4">
+                    เพื่อความสะดวกในการทดสอบ นกดปุ่มจำลองการสแกน QR Code ด้านล่างได้เลยครับ
+                </p>
+
+                <div class="grid grid-cols-2 gap-2 w-full">
+                    <button onclick="simulateScan(500, 'ซื้อเมล็ดผักสวนครัว')" class="bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold py-2 px-3 rounded-lg border border-brand-200 transition">
+                        +500 แต้ม (ซื้อ 25 บ.)
+                    </button>
+                    <button onclick="simulateScan(1000, 'ซื้อเซ็ตผักยกชุด')" class="bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold py-2 px-3 rounded-lg shadow transition">
+                        +1,000 แต้ม (ซื้อ 50 บ.)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Notification Toast -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-2xl z-50 flex items-center gap-2 border border-slate-700 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-4">
+        <span id="toastIcon">✨</span>
+        <span id="toastMessage">แจ้งเตือน</span>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // Default Loyalty Rewards Data Array
+        const rewardsData = [
+            { id: 1, name: "คูปองส่วนลด 5 บาท", points: 1000, desc: "ใช้เป็นส่วนลดท้ายบิลเมื่อซื้อขั้นต่ำ 30 บาท", icon: "🎟️", tag: "แลกง่าย" },
+            { id: 2, name: "ฟรี! เมล็ดผักสวนครัว 1 ซอง", points: 2000, desc: "เลือกเมล็ดพันธุ์ผักสวนครัวชนิดใดก็ได้ 1 ซอง", icon: "🥦", tag: "ยอดฮิต" },
+            { id: 3, name: "ฟรี! เมล็ดไม้ป่ามรดก 1 ซอง", points: 5000, desc: "เลือกเมล็ดพยุง, สัก หรือยางนา เกรดคัดพิเศษ", icon: "🌳", tag: "มรดก" },
+            { id: 4, name: "ชุดเพาะพร้อมปลูกยกเซ็ต", points: 10000, desc: "ดินเพาะ 1 ถุง + เมล็ดผัก 2 ซอง + ป้ายปักชื่อ", icon: "🪴", tag: "สุดคุ้ม" }
+        ];
+
+        // State Management
+        let userState = {
+            points: 1000,
+            userId: 'PW-' + Math.floor(1000 + Math.random() * 9000),
+            claimedWelcome: false,
+            history: []
+        };
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            loadUserData();
+            renderRewards();
+            updateUI();
+        });
+
+        // Load data from localStorage
+        function loadUserData() {
+            const savedData = localStorage.getItem('phannawat_loyalty_data');
+            if (savedData) {
+                try {
+                    userState = JSON.parse(savedData);
+                } catch(e) {
+                    console.error("Error loading saved data", e);
+                }
+            } else {
+                saveUserData();
+            }
+        }
+
+        // Save data to localStorage
+        function saveUserData() {
+            localStorage.setItem('phannawat_loyalty_data', JSON.stringify(userState));
+        }
+
+        // Update User Interface Display
+        function updateUI() {
+            document.getElementById('userPoints').innerText = userState.points.toLocaleString();
+            document.getElementById('userIdText').innerText = userState.userId;
+
+            // Welcome Button State
+            const welcomeBtn = document.getElementById('welcomeBtn');
+            if (userState.claimedWelcome) {
+                welcomeBtn.innerText = 'รับแล้ว';
+                welcomeBtn.disabled = true;
+                welcomeBtn.classList.remove('bg-white', 'text-amber-600', 'hover:bg-amber-50');
+                welcomeBtn.classList.add('bg-white/50', 'text-amber-800', 'cursor-not-allowed');
+            }
+
+            renderRewards();
+        }
+
+        // Render Rewards Cards
+        function renderRewards() {
+            const container = document.getElementById('rewardsContainer');
+            container.innerHTML = rewardsData.map(item => {
+                const canRedeem = userState.points >= item.points;
+                return `
+                    <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm hover:shadow-md transition flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-brand-50 border border-brand-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                                ${item.icon}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <h4 class="font-bold text-slate-800 text-sm">${item.name}</h4>
+                                    <span class="text-[9px] bg-amber-100 text-amber-800 font-semibold px-1.5 py-0.2 rounded">${item.tag}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 leading-tight mt-0.5">${item.desc}</p>
+                                <p class="text-xs font-bold text-brand-700 mt-1">
+                                    <i class="fa-solid fa-coins text-amber-500 mr-1"></i>${item.points.toLocaleString()} แต้ม
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="redeemReward(${item.id})" ${canRedeem ? '' : 'disabled'} 
+                            class="${canRedeem ? 'bg-brand-700 hover:bg-brand-800 text-white shadow-md active:scale-95' : 'bg-slate-100 text-slate-400 cursor-not-allowed'} 
+                            text-xs font-bold px-3 py-2 rounded-lg flex-shrink-0 transition">
+                            ${canRedeem ? 'แลกเลย' : 'แต้มไม่พอ'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Claim Welcome Bonus
+        function claimWelcomeBonus() {
+            if (!userState.claimedWelcome) {
+                userState.points += 1000;
+                userState.claimedWelcome = true;
+                saveUserData();
+                updateUI();
+                triggerConfetti();
+                showToast("🎉 รับโบนัสต้อนรับ 1,000 แต้มเรียบร้อยแล้ว!");
+            }
+        }
+
+        // Redeem Reward Logic
+        function redeemReward(rewardId) {
+            const reward = rewardsData.find(r => r.id === rewardId);
+            if (!reward) return;
+
+            if (userState.points >= reward.points) {
+                if (confirm(`ยืนยันการใช้ ${reward.points.toLocaleString()} แต้ม เพื่อแลกรับ "${reward.name}"`)) {
+                    userState.points -= reward.points;
+                    userState.history.push({
+                        type: 'redeem',
+                        title: reward.name,
+                        points: reward.points,
+                        date: new Date().toLocaleDateString('th-TH')
+                    });
+                    saveUserData();
+                    updateUI();
+                    triggerConfetti();
+                    showToast(`🎁 แลกรับ "${reward.name}" สำเร็จ! แสดงหน้าจอนี้ให้เจ้าของร้านเพื่อรับสิทธิ์`);
+                }
+            }
+        }
+
+        // Scanner Modal Control
+        function openScannerModal() {
+            document.getElementById('scannerModal').classList.remove('hidden');
+        }
+
+        function closeScannerModal() {
+            document.getElementById('scannerModal').classList.add('hidden');
+        }
+
+        function simulateScan(points, reason) {
+            userState.points += points;
+            userState.history.push({
+                type: 'earn',
+                title: reason,
+                points: points,
+                date: new Date().toLocaleDateString('th-TH')
+            });
+            saveUserData();
+            updateUI();
+            closeScannerModal();
+            triggerConfetti();
+            showToast(`✨ สแกนสำเร็จ! ได้รับ +${points.toLocaleString()} แต้ม (${reason})`);
+        }
+
+        // Share to LINE Function
+        function shareToLine() {
+            const shareText = encodeURIComponent(`🌱 มาสะสมแต้มกับร้าน 'พรรณวัฒน์' กันครับ! สแกนรับโบนัสฟรี 1,000 แต้มสำหรับแลกเมล็ดพันธุ์ผักและไม้ป่ามรดกสะสมเลย:`);
+            const shareUrl = encodeURIComponent(window.location.href);
+            window.open(`https://line.me/R/msg/text/?${shareText}%0D%0A${shareUrl}`, '_blank');
+        }
+
+        function openExternalLine() {
+            showToast("📲 กำลังเปิด LINE Official Account...");
+            setTimeout(() => {
+                window.location.href = "https://line.me";
+            }, 1000);
+        }
+
+        // Admin Panel Controls
+        function toggleAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function adminAddPoints() {
+            const amountInput = document.getElementById('adminPurchaseAmount');
+            const amount = parseFloat(amountInput.value);
+
+            if (isNaN(amount) || amount <= 0) {
+                showToast("⚠️ กรุณากรอกยอดซื้อให้ถูกต้อง");
+                return;
+            }
+
+            const earnedPoints = amount * 20; // 1 Baht = 20 Points
+            userState.points += earnedPoints;
+            saveUserData();
+            updateUI();
+            amountInput.value = '';
+            showToast(`✅ เพิ่ม ${earnedPoints.toLocaleString()} แต้ม จากยอดซื้อ ${amount} บาท เรียบร้อย`);
+        }
+
+        function adminQuickAdd(points) {
+            userState.points += points;
+            saveUserData();
+            updateUI();
+            showToast(`✅ เพิ่ม ${points.toLocaleString()} แต้ม เรียบร้อยแล้ว`);
+        }
+
+        function resetSystemData() {
+            if (confirm("คุณต้องการลบข้อมูลทดสอบทั้งหมดและเริ่มใหม่ใช่หรือไม่?")) {
+                localStorage.removeItem('phannawat_loyalty_data');
+                userState = {
+                    points: 1000,
+                    userId: 'PW-' + Math.floor(1000 + Math.random() * 9000),
+                    claimedWelcome: false,
+                    history: []
+                };
+                saveUserData();
+                updateUI();
+                showToast("🔄 รีเซ็ตข้อมูลเรียบร้อยแล้ว");
+            }
+        }
+
+        // Helper: Confetti Animation
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 80,
+                    spread: 60,
+                    origin: { y: 0.7 }
+                });
+            }
+        }
+
+        // Helper: Custom Toast Message
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.innerText = message;
+            
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
